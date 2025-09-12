@@ -1,0 +1,3 @@
+*.snz
+snappy_decompress/
+.vscode/
