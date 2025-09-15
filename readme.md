@@ -1,194 +1,193 @@
-# NYC Taxi Data Processing Pipeline
+# NYC Taxi Data Processing Project
 
-A Python-based toolkit for downloading, decompressing, and processing NYC taxi trip data from AWS S3. This project handles Snappy-compressed (.snz) files containing taxi trip records and provides utilities for local processing and cloud storage.
+A Python-based data processing pipeline for NYC taxi trip data, featuring Snappy compression/decompression and AWS S3 integration.
 
-## 🚀 Features
+## Overview
 
-- **Download NYC taxi data** from AWS S3 public datasets
-- **Decompress Snappy files** efficiently 
-- **Upload decompressed data** directly to S3 without local storage
-- **Preview and analyze** decompressed content
-- **Batch processing** capabilities for multiple files
-- **Memory-efficient** streaming operations
+This project provides tools to download, decompress, and process NYC taxi trip data from AWS public datasets. The data is stored in Snappy-compressed format (.snz files) and can be processed both locally and in the cloud using AWS S3.
 
-## 📁 Project Structure
+## Features
+
+- **Data Download**: Download NYC taxi trip data from AWS public bucket
+- **Snappy Decompression**: Decompress .snz files locally or stream-decompress to S3
+- **AWS S3 Integration**: Upload decompressed data to your own S3 bucket
+- **MAC-based Bucket Naming**: Uses MAC address for unique S3 bucket naming
+- **Cross-region Support**: Handle data transfer between different AWS regions
+
+## Project Structure
 
 ```
-Nyc-Taxi/
-├── .gitignore                 # Git ignore patterns
-├── taxi_event_reader.py       # Downloads .snz files from S3
-├── snappy_decompress.py       # Decompresses files locally
-├── decompressed_to_s3.py     # Decompresses and uploads to S3
-└── README.md                 # This file
+├── taxi_event_reader.py          # Downloads .snz files from AWS public bucket
+├── snappy_decompress.py          # Local decompression of .snz files
+├── local_decompress_snz_s3.py    # Decompresses local .snz files and uploads to S3
+├── s3_decompress_snz_s3.py       # Stream decompresses from source S3 to destination S3
+├── part-00000.snz to part-00015.snz  # Downloaded NYC taxi data files
+├── snappy_decompress/            # Directory containing decompressed files
+│   ├── part-00000
+│   ├── part-00001
+│   └── ... (part-00002 to part-00015)
+└── README.md
 ```
 
-## 🛠️ Installation
+## Prerequisites
 
-### Prerequisites
-
-- Python 3.7+
-- AWS CLI configured (for S3 operations)
-
-### Dependencies
-
-Install required packages:
+### Required Python Packages
 
 ```bash
 pip install boto3 python-snappy
 ```
 
-For Ubuntu/Debian systems, you may need to install system dependencies:
+### AWS Configuration
 
-```bash
-sudo apt-get install libsnappy-dev
-```
+Ensure you have AWS credentials configured:
+- AWS CLI configured (`aws configure`)
+- Or environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+- Or IAM role (if running on EC2)
 
-For macOS:
+Required AWS permissions:
+- S3 read access to `aws-bigdata-blog` bucket
+- S3 full access to your destination bucket
+- S3 bucket creation permissions
 
-```bash
-brew install snappy
-```
-
-## 📖 Usage
+## Usage
 
 ### 1. Download NYC Taxi Data
 
-Download Snappy-compressed taxi data files from the AWS public dataset:
-
-```python
-from taxi_event_reader import download_nyc_taxi_data
-
-# Download to current directory
-download_nyc_taxi_data()
-
-# Download to specific directory
-download_nyc_taxi_data(download_path="./data/")
+```bash
+python taxi_event_reader.py
 ```
 
-### 2. Decompress Files Locally
+Downloads Snappy-compressed NYC taxi trip data files from the AWS public dataset:
+- **Source**: `s3://aws-bigdata-blog/artifacts/flink-refarch/data/nyc-tlc-trips.snz/`
+- **Downloads**: 16 files (part-00000.snz to part-00015.snz)
+- **Total Size**: Several GBs of compressed data
 
-Decompress `.snz` files to readable format:
-
-```python
-from snappy_decompress import decompress_snappy_files, preview_decompressed_files
-
-# Decompress all .snz files
-decompress_snappy_files(source_dir="./", destination_dir="./decompressed/")
-
-# Preview first few lines of decompressed files
-preview_decompressed_files("./decompressed/", lines_to_show=5)
-```
-
-### 3. Direct S3 Processing
-
-Decompress files and upload directly to S3 without local storage:
-
-```python
-from decompressed_to_s3 import SnappyToS3Processor
-
-# Initialize processor
-processor = SnappyToS3Processor(bucket_name="your-bucket", region="us-east-1")
-
-# Process single file
-processor.decompress_and_upload(
-    snappy_file_path="data.snz",
-    s3_object_key="processed/data.txt"
-)
-
-# Batch processing
-file_mappings = {
-    "file1.snz": "processed/file1.txt",
-    "file2.snz": "processed/file2.txt"
-}
-results = processor.batch_process(file_mappings)
-```
-
-## 🔧 Configuration
-
-### AWS Configuration
-
-Ensure your AWS credentials are configured:
+### 2. Local Decompression
 
 ```bash
-aws configure
+python snappy_decompress.py
 ```
 
-Or set environment variables:
+Decompresses .snz files locally:
+- **Input**: .snz files in current directory
+- **Output**: Decompressed files in `./snappy_decompress/` directory
+- **Format**: Removes .snz extension from filenames
+- **Note**: Opens Notepad on Windows and displays first 100 lines of each file
+
+### 3. Local to S3 Upload (with decompression)
 
 ```bash
-export AWS_ACCESS_KEY_ID=your_access_key
-export AWS_SECRET_ACCESS_KEY=your_secret_key
-export AWS_DEFAULT_REGION=us-east-1
+python local_decompress_snz_s3.py
 ```
 
-### Default Settings
+Decompresses local .snz files and uploads to your S3 bucket:
+- **Target Region**: us-east-2 (configurable)
+- **Bucket Name**: `{mac-address}-nyc-taxi` (auto-generated)
+- **Prefix**: `decompressed/`
+- **Process**: Stream decompression → S3 upload
 
-- **Source S3 Bucket**: `aws-bigdata-blog`
-- **Data Path**: `artifacts/flink-refarch/data/nyc-tlc-trips.snz/`
-- **Default Region**: `us-east-1`
-- **Local Decompression Dir**: `./snappy_decompress/`
+### 4. S3 to S3 Stream Processing
 
-## 📊 Data Format
+```bash
+python s3_decompress_snz_s3.py
+```
 
-The NYC taxi data contains trip records with fields like:
+Stream decompresses from source S3 bucket to destination S3 bucket:
+- **Source**: `s3://aws-bigdata-blog` (us-east-1)
+- **Destination**: `s3://{mac-address}-nyc-taxi` (us-east-2)
+- **Process**: Direct S3-to-S3 streaming with decompression
+- **Advantages**: No local storage required, faster processing
 
-- Trip timestamps (pickup/dropoff)
-- Passenger counts
+## Configuration
+
+### Regions and Buckets
+
+The scripts use the following default configurations:
+
+```python
+# Source (NYC Data)
+SRC_REGION = "us-east-1"
+SRC_BUCKET = "aws-bigdata-blog"
+SRC_PREFIX = "artifacts/flink-refarch/data/nyc-tlc-trips.snz/"
+
+# Destination (Your bucket)
+DST_REGION = "us-east-2"  # Configurable
+DST_BUCKET = f"{mac_address}-nyc-taxi"
+DST_PREFIX = "decompressed"
+```
+
+### MAC Address-based Naming
+
+The project uses your machine's MAC address to create unique S3 bucket names:
+```python
+def get_mac_prefix() -> str:
+    return f"{uuid.getnode():012x}"
+```
+
+## Data Format
+
+The NYC taxi trip data contains fields such as:
+- Trip timestamps
+- Pickup/dropoff locations
 - Trip distances
 - Fare amounts
 - Payment types
-- Location coordinates
+- And more...
 
-## 🚨 Error Handling
+Each decompressed file contains multiple records in a structured format suitable for data analysis and processing.
 
-The toolkit includes comprehensive error handling for:
+## Error Handling
 
-- Missing AWS credentials
-- Network connectivity issues
-- File corruption during download/decompression
-- S3 access permissions
-- Memory limitations during processing
+The scripts include robust error handling for:
+- S3 bucket existence and region validation
+- AWS credential issues
+- Network connectivity problems
+- File I/O errors
+- Snappy decompression errors
 
-## 🔍 Monitoring
+## Performance Notes
 
-Each module provides detailed logging with:
+- **Stream Processing**: `s3_decompress_snz_s3.py` is the most efficient for large datasets
+- **Local Processing**: Use local scripts for smaller datasets or when local analysis is needed
+- **Memory Usage**: Stream processing minimizes memory footprint
+- **Network**: Cross-region transfers may incur additional AWS charges
 
-- ✅ Success indicators
-- ❌ Error messages with details
-- 📊 File size and processing statistics
-- ⚠️ Warnings for potential issues
+## Troubleshooting
 
-## 🤝 Contributing
+### Common Issues
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. **Bucket already exists in different region**
+   - Error indicates bucket name collision
+   - Solution: The MAC-based naming should prevent this
 
-## 📝 License
+2. **AWS credentials not found**
+   - Configure AWS CLI or set environment variables
+   - Ensure proper IAM permissions
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+3. **Snappy decompression errors**
+   - Verify file integrity
+   - Check if files are fully downloaded
 
-## 🙏 Acknowledgments
+4. **S3 upload failures**
+   - Check network connectivity
+   - Verify S3 permissions
+   - Ensure bucket exists and is accessible
 
-- NYC Taxi & Limousine Commission for providing the dataset
-- AWS for hosting the public dataset
-- Google's Snappy compression library
+## Contributing
 
-## 📞 Support
+When modifying the scripts:
+1. Maintain error handling patterns
+2. Update region configurations as needed
+3. Test with small datasets first
+4. Consider AWS costs for cross-region transfers
 
-For questions or issues:
+## License
 
-1. Check the existing issues in the repository
-2. Create a new issue with detailed description
-3. Include error logs and system information
+This project is provided as-is for educational and development purposes.
 
-## 🔮 Future Enhancements
+## Data Source
 
-- [ ] Add data validation and schema checking
-- [ ] Implement parallel processing for large datasets
-- [ ] Add support for other compression formats
-- [ ] Create data analysis utilities
-- [ ] Add Docker containerization
-- [ ] Implement data pipeline orchestration
+NYC taxi trip data courtesy of:
+- NYC Taxi and Limousine Commission (TLC)
+- AWS Open Data Program
+- Source bucket: `aws-bigdata-blog`
