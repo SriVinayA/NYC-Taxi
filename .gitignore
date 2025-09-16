@@ -1,4 +1,4 @@
 *.snz
 snappy_decompress/
 .vscode/
-.DS_Store/
+.DS_Store
