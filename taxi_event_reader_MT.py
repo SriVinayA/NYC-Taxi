@@ -23,7 +23,7 @@ import snappy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import FileFormatDetection
 
-import TripEvent
+from TripEvent import TripEvent
 import AdaptTimeOption
 
 REGION = "us-east-1"
@@ -102,6 +102,10 @@ def process_object(obj_summary, s3_client):
     bps = (size / read_time) if read_time > 0 else float("inf")
     print(f"Read {key}: {size} bytes in {read_time:.2f}s ({bps:.2f} B/s)")
 
+    file_format = FileFormatDetection.sniff_stream(stream)
+    print(f"Detected file format for {key}: {file_format}")
+    stream.seek(0) # rewind after format detection
+
     # Prepare per-object output file
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     out_path = os.path.join(OUTPUT_DIR, safe_filename_from_key(key, ".ndjson"))
@@ -127,6 +131,7 @@ def process_object(obj_summary, s3_client):
                 # write the original line
                 if not line.endswith("\n"):
                     line += "\n"
+                # print(f"{ts_ms}: {line.strip()}")
                 fh.write(line)
 
                 events += 1
@@ -136,6 +141,9 @@ def process_object(obj_summary, s3_client):
                 print(f"{key}: Ignoring malformed line.")
             except Exception as e:
                 print(f"{key}: Error processing line: {e}")
+        
+        fh.flush()
+        fh.close()
 
     proc_time = max(0.0, time.time() - start_proc)
     with stats_lock:
