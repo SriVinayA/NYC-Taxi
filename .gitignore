@@ -4,3 +4,4 @@ snappy_decompress/
 .DS_Store
 __pycache__/
 .idea/
+snappy_decompressed_events/
