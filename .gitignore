@@ -5,3 +5,4 @@ snappy_decompress/
 __pycache__/
 .idea/
 snappy_decompressed_events/
+.env
